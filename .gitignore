@@ -1,0 +1,39 @@
+# --- SECRETS (MOST IMPORTANT) ---
+.env
+token.txt
+secrets.py
+config.json
+credentials.json
+
+# --- PYTHON ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.python-version
+*.so
+
+# --- VIRTUAL ENVIRONMENTS ---
+.venv/
+venv/
+env/
+ENV/
+lib/
+bin/
+include/
+
+# --- IDEs & EDITORS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.vscodium/
+
+# --- SYSTEM FILES ---
+.DS_Store
+Thumbs.db
+discord.log
+
+# --- PROJECT SPECIFIC ---
+data.db
+*.sqlite
