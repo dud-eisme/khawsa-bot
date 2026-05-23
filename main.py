@@ -260,15 +260,14 @@ async def afk(ctx, *, reason=random.choice(AFK_FLAVOR_TEXTS)):
         await ctx.send(f"AFK Reason: **{reason}**")
     print("Username changed.")
     
-#AFK Remove Tag
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
-    
-        
 
-    #AFK
+    msg = message.content.lower()
+
+    # --- AFK System ---
     for mention in message.mentions:
         if mention.id in afk_reasons:
             reason = afk_reasons[mention.id]
@@ -294,27 +293,47 @@ async def on_message(message):
         del afk_reasons[message.author.id]
         
         if message.author.id == OWNER_ID and not status_removed:
-            await message.channel.send(f"Welcome back, Boss! Tamara naam mathi [AFK] nathi hatavi saktu, permissions nathi ni! 🍋", delete_after=5)
+            await message.reply(f"Welcome back, Boss! Tamara naam mathi [AFK] nathi hatavi saktu, permissions nathi ni! 🍋", delete_after=5, mention_author=False)
         else:
-            await message.channel.send(f"Welcome back {message.author.mention}, I've removed your AFK status!", delete_after=5)
-            
+            await message.reply(f"Welcome back, I've removed your AFK status!", delete_after=5, mention_author=False)
 
-    #Easter Eggs
-    if "khaman" in message.content.lower():
-        if random.random() < 0.4: 
+    # --- Easter Eggs ---
+
+    # --- Strict Empty Ping Detection ---
+    if message.content.strip() == bot.user.mention:
+        responses = [
+            "Su kaam che baka? Kaam vagar magaj ni dahi nahi kar ni bura! 🤫",
+            "Khali khali shu ping karya kare che? Lari par khawsa khava jav, mane hairan nahi kar! 🥣",
+            "Oii bhura! Kaam ni vaat hoi to bol, nahi to dumas road par nikal chal! 😤",
+            "Tamre potanu kai kaam nathi su? Shu @ khali khali thoka thok kare che! 🍋"
+        ]
+        await message.reply(random.choice(responses), mention_author=False)
+        return
+
+    if "khaman" in msg:
+        if random.random() < 0.8: 
             await message.channel.send("Did someone say Khaman? Real Surtis know Locho is the goat. 🍋🥣")
             
-    if message.content.lower() == "su chale?":
+    if "su chale" in msg or "shu chale" in msg:
         responses = [
             "Khawsa ni lari chale che, biju su!",
             "Bhagal par traffic chale che, bhai.",
             "Bas, tamari daya che!",
             "Dumas par bhoot chale che. 👻"
         ]
-        await message.channel.send(random.choice(responses))
+        await message.reply(random.choice(responses), mention_author=False)
         
+    if any(word in msg for word in ["hello", "hi", "kem cho"]) or msg.startswith("yo") or msg.startswith("hi"):
+        await message.reply(f"👋 *Aav baka aav!* Kem che?", mention_author=False)
         
-    await bot.process_commands(message)
+    elif any(word in msg for word in ["hungry", "bhookh", "dinner", "lunch", "food"]):
+        await message.channel.send(
+            "🍽️ *Bhaiyo*, if we are talking about food, it better be Surti Khawsa or Jaani's Locho. "
+            "Don't suggest any weird items here, okay?"
+        )
+
+    await bot.process_commands(message)   
+
 
 
 #Pseudo Kick
@@ -364,7 +383,16 @@ async def ban(ctx, member: discord.Member = None, *, reason="No reason provided"
         return
 
     await ctx.send(random.choice(fake_ban_responses))
-    
+
+
+#CommandNotFound
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        await ctx.message.reply("Avo koi command nathi baka! `!help` joi le ni!", mention_author=False)
+        return
+
+
 
     
 
