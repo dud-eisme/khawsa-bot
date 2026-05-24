@@ -26,11 +26,8 @@ from channel_id import (
 )
 #import easter_eggs
 
-
-
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
-
 
 handler = logging.FileHandler(filename='discord.log', encoding='UTF-8', mode='w')
 intents = discord.Intents.default()
@@ -41,14 +38,17 @@ bot = commands.Bot(command_prefix=commands.when_mentioned_or('!'), intents=inten
 
 afk_reasons = {}
 
-
 #Bot Active Message
 @bot.event
 async def on_ready():
     print(f"✅ {bot.user.name} is online!")
 
-    #if not check_reddit_rss.is_running():
-    #    check_reddit_rss.start()
+    # Sync Slash Commands Globally
+    try:
+        synced = await bot.tree.sync()
+        print(f"🔄 Synced {len(synced)} slash commands globally.")
+    except Exception as e:
+        print(f"❌ Failed to sync slash commands: {e}")
 
     guild = bot.get_guild(GUILD_ID)
     if guild:
@@ -59,14 +59,16 @@ async def on_ready():
             await update_member_count(guild)
         except Exception as e:
             print(f"Chunking failed: {e}")
-
-
+    
+    activity = discord.Activity(
+        type=discord.ActivityType.listening, 
+        name="looking for Khawsa 🥣"
+    )
+    await bot.change_presence(status=discord.Status.online, activity=activity)
 
 #On Join Activities
 @bot.event
 async def on_member_join(member):
-    
-#Detect Bot
     if member.bot:
         role = discord.utils.get(member.guild.roles, name=BOT_ROLE)
         if role:
@@ -74,7 +76,6 @@ async def on_member_join(member):
             print("Bot")
         return
     
-#Role Assign
     role = discord.utils.get(member.guild.roles, name=MEMBER_ROLE)
 
     if role:
@@ -86,8 +87,6 @@ async def on_member_join(member):
     await asyncio.sleep(1)
     await update_member_count(member.guild)
             
-
-#Private Message
     welcome_ch = member.guild.get_channel(WELCOME_CH)
     rules_ch = member.guild.get_channel(RULES_CH)
     intro_ch = member.guild.get_channel(INTRO_CH)
@@ -101,19 +100,19 @@ async def on_member_join(member):
     
     embed_private.add_field(
         name = "Step 1",
-        value = f"📖 Rules {rules_ch.mention if rules_ch else "#rules"}",
+        value = f"📖 Rules {rules_ch.mention if rules_ch else '#rules'}",
         inline = False
     )
 
     embed_private.add_field(
         name = "Step 2",
-        value = f"👋 Introduction {intro_ch.mention if intro_ch else "#intro"}",
+        value = f"👋 Introduction {intro_ch.mention if intro_ch else '#intro'}",
         inline = False
     )
 
     embed_private.add_field(
         name = "Step 3",
-        value = f"🎨 Color Roles {color_ch.mention if color_ch else "#colors"}",
+        value = f"🎨 Color Roles {color_ch.mention if color_ch else '#colors'}",
         inline = False
     )
     
@@ -123,24 +122,13 @@ async def on_member_join(member):
         inline = False
     )
             
-    await member.send(
-        content = "",
-        embed = embed_private
-        )
+    await member.send(content = "", embed = embed_private)
  
     embed_server = discord.Embed(
         title = f"Welcome to r/surat, {member.name} 🧡\n",
         color = 0xc03843
     )
-    
-#    embed_server.add_field(
-#        name = "\u200b",
-#        value = ,
-#        inline = False
-#    )
 
-
-#Server Message
     general_ch = member.guild.get_channel(GENERAL_CH)
     embed_server.add_field(
         name = "\u200b",
@@ -156,19 +144,12 @@ async def on_member_join(member):
         ),
         inline = False
     )
-#    embed_server.add_field(
-#        name = "\u200b",
-#        value = ,
-#        inline = False
-#    )
     
     await welcome_ch.send(
         content = f"{random.choice(BEFORE_FLAVOR_TEXTS)} {member.mention} {random.choice(AFTER_FLAVOR_TEXTS)}!",
         embed = embed_server
-        )
+    )
     
-    
-#Member Count Function
 @bot.event
 async def on_member_remove(member):
     await update_member_count(member.guild)
@@ -183,83 +164,6 @@ async def update_member_count(guild):
         await channel.edit(name = f"📊 Members: {true_member_count}")
         print(f"📊 Verified Human Count: {true_member_count}")
 
-
-#Reddit Posts
-#sent_posts = []
-#@tasks.loop(minutes=5.0)
-#async def check_reddit_rss():
-#    print("Checking Reddit...") # DEBUG LINE
-#
-#    channel = bot.get_channel(REDDIT_FEED_CH)
-#    if not channel:
-#        return
-#    
-#    feed_url = "https://www.reddit.com/r/surat/new/.rss"
-#    feed = feedparser.parse(feed_url, agent='SuratDiscordBot/1.0')
-#
-#    print(f"Found {len(feed.entries)} entries") # DEBUG LINE
-#    
-#    for entry in feed.entries[:5]:
-#        if entry.id not in sent_posts:
-#            raw_html = entry.summary if 'summary' in entry else ""
-#
-#            image_match = re.search(r'href="(https://(?:i|preview)\.redd\.it/[^"]+)"', raw_html)
-#            image_url = image_match.group(1) if image_match else None
-#            if image_url:
-#                image_url = html.unescape(image_url)
-#            
-#            clean_text = re.sub('<[^<]+?>', '', raw_html)
-#            clean_text = html.unescape(clean_text)
-#
-#            if "submitted by" in clean_text:
-#                clean_text = clean_text.split("submitted by")[0].strip()
-#
-#            final_description = (clean_text[:300] + '...') if len(clean_text) > 300 else clean_text
-#
-#            embed = discord.Embed(
-#                title=entry.title,
-#                url=entry.link,
-#                description=final_description or "> *(No Description)*",
-#                color=0xff4500
-#            )
-#            embed.set_author(name=entry.author)
-#            
-#            if image_url:
-#                embed.set_image(url=image_url)
-#            
-#            await channel.send(content="<:reddit_logo:1501467684800299099> **New post on r/surat**", embed=embed)
-#            sent_posts.append(entry.id)
-#    
-#    if len(sent_posts) > 50:
-#        sent_posts.pop(0)
-
-
-
-
-
-#Custom Commands from here
-
-
-#Hello Command
-@bot.command()
-async def hello(ctx):
-    await ctx.send(f"was this a command?")
-
-
-#AFK Tag
-@bot.command()
-async def afk(ctx, *, reason=random.choice(AFK_FLAVOR_TEXTS)):
-    target = ctx.author
-    afk_reasons[ctx.author.id] = reason
-    if not ctx.author.display_name.startswith("[AFK]"):
-        try:
-            await target.edit(nick=f"[AFK] {ctx.author}")
-        except discord.Forbidden:
-            await ctx.send("I can't change your nickname, but I've noted you are AFK.")
-    else:
-        await ctx.send(f"AFK Reason: **{reason}**")
-    print("Username changed.")
-    
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -280,7 +184,7 @@ async def on_message(message):
         status_removed = False
         
         if message.author.nick and message.author.nick.upper().startswith("[AFK]"):
-            new_nick = message.author.nick[6:].strip() # Removes "[AFK] "
+            new_nick = message.author.nick[6:].strip()
             try:
                 await message.author.edit(nick=new_nick)
                 status_removed = True
@@ -296,8 +200,6 @@ async def on_message(message):
             await message.reply(f"Welcome back, Boss! Tamara naam mathi [AFK] nathi hatavi saktu, permissions nathi ni! 🍋", delete_after=5, mention_author=False)
         else:
             await message.reply(f"Welcome back, I've removed your AFK status!", delete_after=5, mention_author=False)
-
-    # --- Easter Eggs ---
 
     # --- Strict Empty Ping Detection ---
     if message.content.strip() == bot.user.mention:
@@ -319,7 +221,7 @@ async def on_message(message):
             "Khawsa ni lari chale che, biju su!",
             "Bhagal par traffic chale che, bhai.",
             "Bas, tamari daya che!",
-            "Dumas par bhoot chale che. 👻"
+            "Dumas par bhoot chale che. 2"
         ]
         await message.reply(random.choice(responses), mention_author=False)
         
@@ -334,13 +236,32 @@ async def on_message(message):
 
     await bot.process_commands(message)   
 
+# --- Custom App (Slash) Commands ---
 
+@bot.tree.command(name="hello", description="Checks if this was a command")
+async def hello(interaction: discord.Interaction):
+    await interaction.response.send_message("was this a command?")
 
-#Pseudo Kick
-@bot.command()
-async def kick(ctx, member: discord.Member = None, *, reason="No reason provided"):
+@bot.tree.command(name="afk", description="Sets your AFK status")
+async def afk(interaction: discord.Interaction, reason: str = None):
+    if reason is None:
+        reason = random.choice(AFK_FLAVOR_TEXTS)
+    target = interaction.user
+    afk_reasons[interaction.user.id] = reason
+    
+    if not interaction.user.display_name.startswith("[AFK]"):
+        try:
+            await target.edit(nick=f"[AFK] {interaction.user.name}")
+            await interaction.response.send_message(f"Your status is now AFK: **{reason}**")
+        except discord.Forbidden:
+            await interaction.response.send_message("I can't change your nickname, but I've noted you are AFK.")
+    else:
+        await interaction.response.send_message(f"AFK Reason updated: **{reason}**")
+
+@bot.tree.command(name="kick", description="Try to kick a member from the server")
+async def kick(interaction: discord.Interaction, member: discord.Member = None, reason: str = "No reason provided"):
     if member is None:
-        await ctx.send("Kone kick karvu che, bhai? Name toh lakho! ✍️")
+        await interaction.response.send_message("Kone kick karvu che, bhai? Name toh lakho! ✍️")
         return
 
     fake_kick_responses = [
@@ -353,16 +274,15 @@ async def kick(ctx, member: discord.Member = None, *, reason="No reason provided
     ]
 
     if member.id == OWNER_ID:
-        await ctx.send(f"Watchman ne kick karwa niklo che? Pachha jao, thodu khawsa khai ne aao. 🥣🥣")
+        await interaction.response.send_message(f"Watchman ne kick karwa niklo che? Pachha jao, thodu khawsa khai ne aao. 🥣🥣")
         return
 
-    await ctx.send(random.choice(fake_kick_responses))
-    
-#Pseudo Ban
-@bot.command()
-async def ban(ctx, member: discord.Member = None, *, reason="No reason provided"):
+    await interaction.response.send_message(random.choice(fake_kick_responses))
+
+@bot.tree.command(name="ban", description="Try to ban a member from the server")
+async def ban(interaction: discord.Interaction, member: discord.Member = None, reason: str = "No reason provided"):
     if member is None:
-        await ctx.send("Kone ban karvu che? Khali fokat ma ban command nai vaparvani! 🚫")
+        await interaction.response.send_message("Kone ban karvu che? Khali fokat ma ban command nai vaparvani! 🚫")
         return
 
     fake_ban_responses = [
@@ -375,84 +295,56 @@ async def ban(ctx, member: discord.Member = None, *, reason="No reason provided"
     ]
 
     if member.id == OWNER_ID:
-        await ctx.send("Watchman ne ban karse toh aakha Surat ma tamaro ban thai jase, khabar che ne? 🤐")
+        await interaction.response.send_message("Watchman ne ban karse toh aakha Surat ma tamaro ban thai jase, khabar che ne? 🤐")
         return
     
     if member.id == bot.user.id:
-        await ctx.send("Mane ban karso toh tamaru setting kaun karse? Chalo, biju kaam karo! 🤖")
+        await interaction.response.send_message("Mane ban karso toh tamaru setting kaun karse? Chalo, biju kaam karo! 🤖")
         return
 
-    await ctx.send(random.choice(fake_ban_responses))
+    await interaction.response.send_message(random.choice(fake_ban_responses))
 
-
-#CommandNotFound
+# Global command error handling remains for fallback/prefix infrastructure
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
-        await ctx.message.reply("Avo koi command nathi baka! `!help` joi le ni!", mention_author=False)
+        await ctx.message.reply("Avo koi command nathi baka! Slash command check karo slice slice!", mention_author=False)
         return
 
+# --- Admin Slash Commands ---
 
+@bot.tree.command(name="rules", description="Display server rules")
+async def rules(interaction: discord.Interaction):
+    # Check roles inside the interaction
+    if not any(role.name in MOD_ROLES for role in interaction.user.roles):
+        await interaction.response.send_message("You do not have the permissions to do that", ephemeral=True)
+        return
 
-    
-
-#Admin Commands from here
-
-#Rules Command
-@bot.command()
-@commands.has_any_role(*MOD_ROLES)
-async def rules(ctx):
-    embed = discord.Embed(
-        title = "RULES",
-        color = 0xc03843
-    )
-    
+    embed = discord.Embed(title="RULES", color=0xc03843)
+    embed.add_field(name="Promotion", value="Any kind of promotion/annoying links is/are prohibited.", inline=False)
     embed.add_field(
-        name = "Promotion",
-        value = "Any kind of promotion/annoying links is/are prohibited.",
-        inline = False
+        name="Be Respectful to other Members", 
+        value="Racism, Sexism are prohibited.\nPlease ask before DMing anyone.\nIf someone's not okay with something, stop. Please, just don't be a dick\n", 
+        inline=False
     )
-    
-    embed.add_field(
-        name = "Be Respectful to other Members",
-        value = "Racism, Sexism are prohibited.\n"
-                "Please ask before DMing anyone.\n"
-                "If someone's not okay with something, stop. Please, just don't be a dick\n",
-        inline = False
-    )
-    
-    embed.add_field(
-        name = "Discord TOS",
-        value = "Lastly, please follow Discord's TOS.",
-        inline = False
-    )
+    embed.add_field(name="Discord TOS", value="Lastly, please follow Discord's TOS.", inline=False)
 
-    await ctx.send  (
-        content = "",
-        embed = embed
-    )
-
-    await ctx.send(
-        "**RULES**\n"
-        "\n"
-        "\n"
-        "1. Any kind of promotion/annoying links is/are prohibited.\n"
-        "\n"
-        "2. Racism, Sexism are prohibited.\n"
-        "\n"
-        "3. Please ask before DMing anyone.\n"
-        "\n"
-        "4. Respect everyone's opinion. If someone is not okay with something, stop.\n"
-        "\n"
+    await interaction.response.send_message(embed=embed)
+    await interaction.channel.send(
+        "**RULES**\n\n\n"
+        "1. Any kind of promotion/annoying links is/are prohibited.\n\n"
+        "2. Racism, Sexism are prohibited.\n\n"
+        "3. Please ask before DMing anyone.\n\n"
+        "4. Respect everyone's opinion. If someone is not okay with something, stop.\n\n"
         "5. Lastly, follow Discord's TOS.\n"
     )
-    
 
+@bot.tree.command(name="howto", description="Show the server operational guide")
+async def howto(interaction: discord.Interaction):
+    if not any(role.name in MOD_ROLES for role in interaction.user.roles):
+        await interaction.response.send_message("You do not have the permissions to do that", ephemeral=True)
+        return
 
-#How To Use Command
-@bot.command()
-@commands.has_any_role(*MOD_ROLES)
-async def howto(ctx):
     content = inspect.cleandoc("""
         **How to use this server**
         If you’re new or confused, this will help you understand where to post what. No pressure to remember everything at once. Just start somewhere, you’ll figure it out over time.
@@ -476,56 +368,76 @@ async def howto(ctx):
         Each plan in #🎉│meetups-events should go in its **own thread** so things don’t get messy.
     """)
 
-    embed = discord.Embed(
-        title="Server Guide 📖",
-        description=content,
-        color=0xf8c813
-    )
+    embed = discord.Embed(title="Server Guide 📖", description=content, color=0xf8c813)
     embed.set_footer(text="r/surat Community")
-    
-    await ctx.send(embed=embed)
-    
+    await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="assign", description="Assign a role to a member")
+async def assign(interaction: discord.Interaction, assign_role: str, member: discord.Member = None):
+    if not any(role.name in MOD_ROLES for role in interaction.user.roles):
+        await interaction.response.send_message("You do not have the permissions to do that", ephemeral=True)
+        return
 
-
-#Assign - Remove Roles
-@bot.command()
-@commands.has_any_role(*MOD_ROLES)
-async def assign(ctx, assign_role, member: discord.Member = None):
-    member = member or ctx.author
-    role = discord.utils.get(ctx.guild.roles, name=assign_role)
+    member = member or interaction.user
+    role = discord.utils.get(interaction.guild.roles, name=assign_role)
     if role:
         try: 
             await member.add_roles(role)
+            await interaction.response.send_message(f"Successfully assigned {assign_role} to {member.display_name}")
         except discord.Forbidden:
-            await ctx.send(f"I do not have the permissions to assign {assign_role}")
+            await interaction.response.send_message(f"I do not have the permissions to assign {assign_role}")
     else:
-        await ctx.send(f"Role {assign_role} does not exist")
+        await interaction.response.send_message(f"Role {assign_role} does not exist")
 
-@assign.error
-async def assign_error(ctx, error):
-    if isinstance(error, commands.MissingRole):
-        await ctx.send("You do not have the permissions to do that")
+@bot.tree.command(name="remove", description="Remove a role from a member")
+async def remove(interaction: discord.Interaction, remove_role: str, member: discord.Member = None):
+    if not any(role.name in MOD_ROLES for role in interaction.user.roles):
+        await interaction.response.send_message("You do not have the permissions to do that", ephemeral=True)
+        return
 
-@bot.command()
-@commands.has_any_role(*MOD_ROLES)
-async def remove(ctx, remove_role, member: discord.Member = None):
-    member = member or ctx.author
-    role = discord.utils.get(ctx.guild.roles, name=remove_role)
+    member = member or interaction.user
+    role = discord.utils.get(interaction.guild.roles, name=remove_role)
     if role:
         try:
             await member.remove_roles(role)
+            await interaction.response.send_message(f"Successfully removed {remove_role} from {member.display_name}")
         except discord.Forbidden:
-            await ctx.send("I do not have the permissions to remove this role")
+            await interaction.response.send_message("I do not have the permissions to remove this role")
     else:
-        await ctx.send(f"User {member.name} does not have this role")
+        await interaction.response.send_message(f"User {member.name} does not have this role")
+        
+@bot.tree.command(name="safai", description="Cleans up the specified number of messages from the channel")
+async def safai(interaction: discord.Interaction, amount: int = 10):
+    # 1. Check if the user has a Moderator role
+    if not any(role.name in MOD_ROLES for role in interaction.user.roles):
+        await interaction.response.send_message(
+            "You do not have the permissions to do that, baka!", 
+            ephemeral=True
+        )
+        return
 
-@remove.error
-async def remove_error(ctx, error):
-    if isinstance(error, commands.MissingRole):
-        await ctx.send("You do not have the permissions to do that")
+    # 2. Acknowledge the interaction immediately to prevent a timeout error
+    # We use defer(ephemeral=True) so the "Thinking..." message is hidden from normal members
+    await interaction.response.defer(ephemeral=True)
 
-
+    try:
+        # 3. Purge the messages from the channel
+        # We add +1 if it were a text command, but for slash commands, the interaction doesn't count as a message!
+        deleted = await interaction.channel.purge(limit=amount)
+        
+        # 4. Send the confirmation message inside the hidden ephemeral response
+        await interaction.followup.send(
+            f"🧹 Cleaned up {len(deleted)} messages from the chat, *bura*!"
+        )
+        
+    except discord.Forbidden:
+        await interaction.followup.send(
+            "❌ I don't have the `Manage Messages` permission in this channel!"
+        )
+    except Exception as e:
+        await interaction.followup.send(
+            f"❌ Something went wrong: {e}"
+        )
 
 #Bot Run Command
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
