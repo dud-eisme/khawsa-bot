@@ -60,11 +60,36 @@ async def on_ready():
         except Exception as e:
             print(f"Chunking failed: {e}")
     
-    activity = discord.Activity(
-        type=discord.ActivityType.listening, 
-        name="looking for Khawsa 🥣"
-    )
+    activity = discord.Game(name="looking for Khawsa 🥣")
     await bot.change_presence(status=discord.Status.online, activity=activity)
+    
+    if not rotate_custom_status.is_running():
+        rotate_custom_status.start()
+
+# --- Dynamic Custom Status Rotation ---
+@tasks.loop(minutes=30)
+async def rotate_custom_status():
+    await bot.wait_until_ready()
+    
+    status_pool = [
+        "my creator is so dumb 🤦‍♂️",
+        "trying to fix creator's broken code... 🛠️",
+        "coded by an absolute clown 🤡",
+        "running on single-digit braincells today 🧠❌",
+        "my creator thinks indentation is optional 😭",
+        "stuck on a laptop because my dev is broke 🐧",
+        "creator copy-pasted me from stackoverflow 📋🔧",
+        "waiting for my dev to learn basic python 🐍📉",
+        "my creator's code has more bugs than a swamp 🦟",
+        "send help, my creator has no clue what they're doing SOS🆘"
+    ]
+    
+    chosen_status = random.choice(status_pool)
+    
+    activity = discord.CustomActivity(name=f"{chosen_status}")
+    
+    await bot.change_presence(status=discord.Status.online, activity=activity)
+    print(f"🔄 Status updated to: {chosen_status}")
 
 #On Join Activities
 @bot.event
@@ -217,7 +242,7 @@ async def on_message(message):
             await message.channel.send("Did someone say Khaman? Real Surtis know Locho is the goat. 🍋🥣")
 
     # COMBINED TRIGGER: Catches "su chale", "shu chale", or a standalone/casual "hi"
-    if "su chale" in msg or "shu chale" in msg or msg.startswith("hi"):
+    if "su chale" in msg or "shu chale" in msg:
         responses = [
             "Khawsa ni lari chale che, biju su!",
             "Bhagal par traffic chale che, bhai.",
@@ -227,20 +252,20 @@ async def on_message(message):
         await message.reply(random.choice(responses), mention_author=False)
         
     # CLEANED GREETING: Now only triggers for hello, kem cho, or variations of yooo
-    elif any(word in msg for word in ["hello", "kem cho"]) or msg.startswith("yo"):
-        greeting_responses = [
-            f"👋 *Aav baka aav!* Kem che {message.author.mention}?",
-            f"🙌 *Yo bhura!* Su chale che? All good?",
-            f"🥣 *Aao padharo!* Let's grab some hot Locho!",
-            f"🍋 *Kem cho baka!* Bol su help joiye che?"
-        ]
-        await message.reply(random.choice(greeting_responses), mention_author=False)
-        
-    elif any(word in msg for word in ["hungry", "bhookh", "dinner", "lunch", "food"]):
-        await message.channel.send(
-            "🍽️ *Bhaiyo*, if we are talking about food, it better be Surti Khawsa or Jaani's Locho. "
-            "Don't suggest any weird items here, okay?"
-        )
+#    elif any(word in msg for word in ["hello", "kem cho"]) or msg.startswith("yo"):
+#        greeting_responses = [
+#            f"👋 *Aav baka aav!* Kem che {message.author.mention}?",
+#            f"🙌 *Yo bhura!* Su chale che? All good?",
+#            f"🥣 *Aao padharo!* Let's grab some hot Locho!",
+#            f"🍋 *Kem cho baka!* Bol su help joiye che?"
+#        ]
+#        await message.reply(random.choice(greeting_responses), mention_author=False)
+#        
+#    elif any(word in msg for word in ["hungry", "bhookh", "dinner", "lunch", "food"]):
+#        await message.channel.send(
+#            "🍽️ *Bhaiyo*, if we are talking about food, it better be Surti Khawsa or Jaani's Locho. "
+#            "Don't suggest any weird items here, okay?"
+#        )
 
     await bot.process_commands(message)   
 
