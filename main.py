@@ -215,18 +215,26 @@ async def on_message(message):
     if "khaman" in msg:
         if random.random() < 0.8: 
             await message.channel.send("Did someone say Khaman? Real Surtis know Locho is the goat. 🍋🥣")
-            
-    if "su chale" in msg or "shu chale" in msg:
+
+    # COMBINED TRIGGER: Catches "su chale", "shu chale", or a standalone/casual "hi"
+    if "su chale" in msg or "shu chale" in msg or msg.startswith("hi"):
         responses = [
             "Khawsa ni lari chale che, biju su!",
             "Bhagal par traffic chale che, bhai.",
             "Bas, tamari daya che!",
-            "Dumas par bhoot chale che. 2"
+            "Dumas par bhoot chale che. 👻"
         ]
         await message.reply(random.choice(responses), mention_author=False)
         
-    if any(word in msg for word in ["hello", "hi", "kem cho"]) or msg.startswith("yo") or msg.startswith("hi"):
-        await message.reply(f"👋 *Aav baka aav!* Kem che?", mention_author=False)
+    # CLEANED GREETING: Now only triggers for hello, kem cho, or variations of yooo
+    elif any(word in msg for word in ["hello", "kem cho"]) or msg.startswith("yo"):
+        greeting_responses = [
+            f"👋 *Aav baka aav!* Kem che {message.author.mention}?",
+            f"🙌 *Yo bhura!* Su chale che? All good?",
+            f"🥣 *Aao padharo!* Let's grab some hot Locho!",
+            f"🍋 *Kem cho baka!* Bol su help joiye che?"
+        ]
+        await message.reply(random.choice(greeting_responses), mention_author=False)
         
     elif any(word in msg for word in ["hungry", "bhookh", "dinner", "lunch", "food"]):
         await message.channel.send(
