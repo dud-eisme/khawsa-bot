@@ -26,7 +26,6 @@ from channel_id import (
     MEMBER_COUNT_CH, REDDIT_FEED_CH,
     OWNER_ID,
 )
-#import easter_eggs
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -41,6 +40,7 @@ intents.presences = True
 bot = commands.Bot(command_prefix=commands.when_mentioned_or('!'), intents=intents)
 
 afk_reasons = {}
+greet_cooldowns = {}
 
 #Bot Active Message
 @bot.event
@@ -263,21 +263,26 @@ async def on_message(message):
         ]
         await message.reply(random.choice(responses), mention_author=False)
         
-    # CLEANED GREETING: Now only triggers for hello, kem cho, or variations of yooo
-#    elif any(word in msg for word in ["hello", "kem cho"]) or msg.startswith("yo"):
-#        greeting_responses = [
-#            f"👋 *Aav baka aav!* Kem che {message.author.mention}?",
-#            f"🙌 *Yo bhura!* Su chale che? All good?",
-#            f"🥣 *Aao padharo!* Let's grab some hot Locho!",
-#            f"🍋 *Kem cho baka!* Bol su help joiye che?"
-#        ]
-#        await message.reply(random.choice(greeting_responses), mention_author=False)
-#        
-#    elif any(word in msg for word in ["hungry", "bhookh", "dinner", "lunch", "food"]):
-#        await message.channel.send(
-#            "🍽️ *Bhaiyo*, if we are talking about food, it better be Surti Khawsa or Jaani's Locho. "
-#            "Don't suggest any weird items here, okay?"
-#        )
+        # 👋 CLEANED GREETING: Now ONLY triggers if the message starts with a greeting keyword or is exactly "hi"
+    elif msg.startswith(("hello", "kem cho", "yo")) or msg.strip() == "hi":
+        import time
+        current_time = time.time()
+        user_id = message.author.id
+        
+        # ⏱️ Check if the user is on a 5-minute (300 seconds) cooldown
+        if user_id in greet_cooldowns and (current_time - greet_cooldowns[user_id]) < 300:
+            return
+
+        # If not on cooldown, update their timestamp and send the response
+        greet_cooldowns[user_id] = current_time
+
+        greeting_responses = [
+            f"👋 *Aav baka aav!* Kem che {message.author.mention}?",
+            f"🙌 *Yo bhura!* Su chale che? All good?",
+            f"🥣 *Aao padharo!* Let's grab some hot Locho!",
+            f"🍋 *Kem cho baka!* Bol su help joiye che?"
+        ]
+        await message.reply(random.choice(greeting_responses), mention_author=False)
 
     await bot.process_commands(message)   
 
