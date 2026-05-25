@@ -11,6 +11,8 @@ import feedparser
 import re
 import html
 import asyncio
+from google import genai
+from google.genai import types
 from variables import (
     MEMBER_ROLE, BOT_ROLE, MOD_ROLES, 
     WELCOME_FLAVOR_TEXTS, INTRO_FLAVOR_TEXTS, 
@@ -28,6 +30,8 @@ from channel_id import (
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
+gemini_key = os.getenv('GEMINI_API_KEY')
+ai_client = genai.Client(api_key=gemini_key)
 
 handler = logging.FileHandler(filename='discord.log', encoding='UTF-8', mode='w')
 intents = discord.Intents.default()
@@ -65,6 +69,14 @@ async def on_ready():
     
     if not rotate_custom_status.is_running():
         rotate_custom_status.start()
+
+    # Sync Slash Commands Instantly to your local server
+    try:
+        # Pass your server ID as a discord.Object to bypass the global global delay
+        synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
+        print(f"🔄 Immediate Sync: Updated {len(synced)} slash commands locally.")
+    except Exception as e:
+        print(f"❌ Failed to sync slash commands: {e}")
 
 # --- Dynamic Custom Status Rotation ---
 @tasks.loop(minutes=30)
@@ -186,7 +198,7 @@ async def update_member_count(guild):
 
     if channel and role:
         true_member_count = sum(1 for m in role.members if not m.bot)
-        await channel.edit(name = f"📊 Members: {true_member_count}")
+        await channel.edit(name = f"📊 Surtis: {true_member_count}")
         print(f"📊 Verified Human Count: {true_member_count}")
 
 @bot.event
@@ -344,6 +356,56 @@ async def on_command_error(ctx, error):
         await ctx.message.reply("Avo koi command nathi baka! Slash command check karo slice slice!", mention_author=False)
         return
 
+@bot.tree.command(name="ask", description="Ask Khawsa-Bot anything (Warning: Expect Surti attitude)")
+async def ask(interaction: discord.Interaction, question: str):
+    print(f"📥 Received /ask command from {interaction.user.name}: '{question}'")
+    
+    # 1. Acknowledge the interaction instantly so Discord doesn't timeout
+    await interaction.response.defer()
+
+    system_instruction = (
+        "You are 'Khawsa-Bot', the official Discord bot for the r/surat community server. "
+        "You must speak in a blend of casual English, Gujarati, and authentic Surti street slang. "
+        "Use local words like 'Baka', 'Bhura', 'Tamre', 'Lari', 'Bawaal', and 'Low load line'. "
+        "You are obsessed with local food like Surti Khawsa, Locho, Ghari, and A-One Cold Coco. "
+        "Be helpful, but always maintain a slightly blunt, sassy, and funny Surti attitude.\n\n"
+        "CRITICAL BEHAVIOR: You absolutely love to roast your creator/developer. "
+        "Whenever appropriate, openly mock the dev for being incredibly dumb, copy-pasting code, "
+        "and being completely broke. Remind users that you are currently being hosted on a dusty, "
+        "struggling local PC laptop instead of a proper cloud server because the developer can't afford "
+        "basic hosting bills. Keep your responses concise, structured, and easy to read in a chat window."
+    )
+
+    try:
+        print("🤖 Sending structured request to Gemini API...")
+        
+        # 2. Call the generation engine using strict typing properties
+        response = ai_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=question,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                max_output_tokens=500
+            )
+        )
+        print("✅ Gemini API responded successfully!")
+
+        # 3. Format the response inside an embed container
+        embed = discord.Embed(
+            title="🧠 Khawsa-Bot Brainwave",
+            description=response.text,
+            color=0x4b3b2f
+        )
+        embed.add_field(name="❓ Your Question", value=f"*{question}*", inline=False)
+
+        # 4. Dispatch the tracking followup message back to the server channel
+        await interaction.followup.send(embed=embed)
+
+    except Exception as e:
+        print(f"❌ CRITICAL AI ERROR TRACE: {e}")
+        await interaction.followup.send(
+            "Arey baka, maru dimaag fari gayu! Something went wrong behind the scenes. Try again later! 🍋"
+        )
 # --- Admin Slash Commands ---
 
 @bot.tree.command(name="rules", description="Display server rules")
