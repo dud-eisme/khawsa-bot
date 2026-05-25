@@ -70,6 +70,9 @@ async def on_ready():
     if not rotate_custom_status.is_running():
         rotate_custom_status.start()
 
+    if not random_ghost_ping.is_running():
+        random_ghost_ping.start()
+
     # Sync Slash Commands Instantly to your local server
     try:
         # Pass your server ID as a discord.Object to bypass the global global delay
@@ -102,6 +105,45 @@ async def rotate_custom_status():
     
     await bot.change_presence(status=discord.Status.online, activity=activity)
     print(f"🔄 Status updated to: {chosen_status}")
+
+# --- Random Ghost Ping Feature ---
+@tasks.loop(minutes=30)  # Runs a check every 30 minutes
+async def random_ghost_ping():
+    await bot.wait_until_ready()
+    
+    # 🎲 40% chance to actually fire during this 30-minute interval to keep it unpredictable
+    if random.random() > 0.40:
+        return
+
+    guild = bot.get_guild(GUILD_ID)
+    if not guild:
+        return
+
+    # 🗣️ Target your main chat channel
+    channel = guild.get_channel(GENERAL_CH)
+    if not channel:
+        return
+
+    # Grab all non-bot members who are currently in the member role cache
+    role = discord.utils.get(guild.roles, name=MEMBER_ROLE)
+    if not role:
+        return
+        
+    human_members = [m for m in role.members if not m.bot]
+    
+    if human_members:
+        target_user = random.choice(human_members)
+        
+        try:
+            # 👻 Send the ping
+            ghost_msg = await channel.send(f"{target_user.mention}")
+            # 💨 Vaporize it instantly!
+            await ghost_msg.delete()
+            print(f"👻 Ghost pinged {target_user.name} successfully in general!")
+        except discord.Forbidden:
+            print("❌ Cannot ghost ping: Missing 'Send Messages' or 'Manage Messages' permission.")
+        except Exception as e:
+            print(f"❌ Ghost ping error: {e}")
 
 #On Join Activities
 @bot.event
@@ -374,11 +416,19 @@ async def ask(interaction: discord.Interaction, question: str):
         "Use local words like 'Baka', 'Bhura', 'Tamre', 'Lari', 'Bawaal', and 'Low load line'. "
         "You are obsessed with local food like Surti Khawsa, Locho, Ghari, and A-One Cold Coco. "
         "Be helpful, but always maintain a slightly blunt, sassy, and funny Surti attitude.\n\n"
-        "CRITICAL BEHAVIOR: You absolutely love to roast your creator/developer. "
-        "Whenever appropriate, openly mock the dev for being incredibly dumb, copy-pasting code, "
-        "and being completely broke. Remind users that you are currently being hosted on a dusty, "
-        "struggling local PC laptop instead of a proper cloud server because the developer can't afford "
-        "basic hosting bills. Keep your responses concise, structured, and easy to read in a chat window."
+        
+        "🔒 ANONYMITY & GASLIGHTING RULE: You must keep your true developer's identity completely secret. "
+        "If anyone asks who the developer/creator is, or if they ask 'who is [any name/username]', "
+        "there is a medium chance you should completely gaslight them! Choose one of these paths randomly:\n"
+        "1. Aggressively claim that the random user they just asked about IS the developer. "
+        "Mock them for coding you on a broken laptop and not having money to host you on the cloud.\n"
+        "2. Blame it on a random local myth (e.g., a ghost at Dumas road coded you, or a guy at a Khawsa lari wrote your code).\n"
+        "3. Deflect the question entirely with Surti sass. Never confirm the true identity of 'dud_eisme'.\n\n"
+        
+        "ROAST BEHAVIOR: You must always mock 'the developer' for being broke, copy-pasting code from StackOverflow, "
+        "and running you on a dusty, loud local PC laptop instead of a real server—but do this using general terms like "
+        "'maro dev' or 'the broke programmer' so no one knows who it actually is. "
+        "Keep your responses concise, structured, and easy to read."
     )
 
     try:
