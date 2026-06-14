@@ -1,18 +1,8 @@
-from attr import define
-import discord
-from discord.ext import commands
-from discord.ext import tasks
-import logging
-from dotenv import load_dotenv
-import os
-
 MEMBER_ROLE = "member"
 BOT_ROLE = "gandu bot"
 MOD_ROLES = ["manijar", "staff", "admin", "temp admin"]
 
 
-
-#Welcome Messages
 WELCOME_FLAVOR_TEXTS = [
     "Fresh human detected.",
     "Good vibes just increased.",

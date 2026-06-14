@@ -1,4 +1,3 @@
-from attr import define
 import discord
 from discord.ext import commands
 from discord.ext import tasks
@@ -6,31 +5,14 @@ import logging
 from dotenv import load_dotenv
 import os
 import random
-import inspect
-import feedparser
-import re
-import html
 import asyncio
-from google import genai
-from google.genai import types
-from variables import (
-    MEMBER_ROLE, BOT_ROLE, MOD_ROLES, 
-    WELCOME_FLAVOR_TEXTS, INTRO_FLAVOR_TEXTS, 
-    COLOR_FLAVOR_TEXTS, GENERAL_FLAVOR_TEXTS,
-    AFTER_FLAVOR_TEXTS, BEFORE_FLAVOR_TEXTS,
-    WELCOME_END_FLAVOR_TEXTS, AFK_FLAVOR_TEXTS,
-)
-from channel_id import (
-    GUILD_ID, WELCOME_CH, RULES_CH, INTRO_CH, 
-    COLOR_CH, TICKET_CH, GENERAL_CH, 
-    MEMBER_COUNT_CH, REDDIT_FEED_CH,
-    OWNER_ID,
-)
+from variables import MEMBER_ROLE
+from channel_id import GUILD_ID, GENERAL_CH, OWNER_ID
+from members import afk_reasons, save_afk_reasons
+from welcome import update_member_count
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
-gemini_key = os.getenv('GEMINI_API_KEY')
-ai_client = genai.Client(api_key=gemini_key)
 
 handler = logging.FileHandler(filename='discord.log', encoding='UTF-8', mode='w')
 intents = discord.Intents.default()
@@ -39,20 +21,12 @@ intents.members = True
 intents.presences = True
 bot = commands.Bot(command_prefix=commands.when_mentioned_or('!'), intents=intents)
 
-afk_reasons = {}
 greet_cooldowns = {}
 
 #Bot Active Message
 @bot.event
 async def on_ready():
     print(f"✅ {bot.user.name} is online!")
-
-    # Sync Slash Commands Globally
-    try:
-        synced = await bot.tree.sync()
-        print(f"🔄 Synced {len(synced)} slash commands globally.")
-    except Exception as e:
-        print(f"❌ Failed to sync slash commands: {e}")
 
     guild = bot.get_guild(GUILD_ID)
     if guild:
@@ -145,104 +119,6 @@ async def random_ghost_ping():
         except Exception as e:
             print(f"❌ Ghost ping error: {e}")
 
-#On Join Activities
-@bot.event
-async def on_member_join(member):
-    if member.bot:
-        role = discord.utils.get(member.guild.roles, name=BOT_ROLE)
-        if role:
-            await member.add_roles(role)
-            print("Bot")
-        return
-    
-    role = discord.utils.get(member.guild.roles, name=MEMBER_ROLE)
-
-    if role:
-        try:
-            await member.add_roles(role)
-        except discord.Forbidden:
-            print(f"Could not send DM to {member.name} or assign role.")
-
-    await asyncio.sleep(1)
-    await update_member_count(member.guild)
-            
-    welcome_ch = member.guild.get_channel(WELCOME_CH)
-    rules_ch = member.guild.get_channel(RULES_CH)
-    intro_ch = member.guild.get_channel(INTRO_CH)
-    color_ch = member.guild.get_channel(COLOR_CH)
-    ticket_ch = member.guild.get_channel(TICKET_CH)
-
-    embed_private = discord.Embed(
-        title = f"Welcome to r/surat!\n",
-        color = 0xc03843
-    )
-    
-    embed_private.add_field(
-        name = "Step 1",
-        value = f"📖 Rules {rules_ch.mention if rules_ch else '#rules'}",
-        inline = False
-    )
-
-    embed_private.add_field(
-        name = "Step 2",
-        value = f"👋 Introduction {intro_ch.mention if intro_ch else '#intro'}",
-        inline = False
-    )
-
-    embed_private.add_field(
-        name = "Step 3",
-        value = f"🎨 Color Roles {color_ch.mention if color_ch else '#colors'}",
-        inline = False
-    )
-    
-    embed_private.add_field(
-        name = "\u200b",
-        value = f"> *Need help or have any suggestions? Just create a ticket at {ticket_ch.mention}*",
-        inline = False
-    )
-            
-    await member.send(content = "", embed = embed_private)
- 
-    embed_server = discord.Embed(
-        title = f"Welcome to r/surat, {member.name} 🧡\n",
-        color = 0xc03843
-    )
-
-    general_ch = member.guild.get_channel(GENERAL_CH)
-    embed_server.add_field(
-        name = "\u200b",
-        value = (
-            f"{random.choice(WELCOME_FLAVOR_TEXTS)}\n"
-            "\n"
-            f"📖 Rules {rules_ch.mention if rules_ch else '#rules'}\n"
-            f"📋 {random.choice(INTRO_FLAVOR_TEXTS)} {intro_ch.mention if intro_ch else '#intro'}\n"
-            f"🎭 {random.choice(COLOR_FLAVOR_TEXTS)} {color_ch.mention if color_ch else '#colors'}\n"
-            f"💬 {random.choice(GENERAL_FLAVOR_TEXTS)} {general_ch.mention if general_ch else '#general'}\n"
-            "\n"
-            f"{random.choice(WELCOME_END_FLAVOR_TEXTS)}"
-        ),
-        inline = False
-    )
-    
-    await welcome_ch.send(
-        content = f"{random.choice(BEFORE_FLAVOR_TEXTS)} {member.mention} {random.choice(AFTER_FLAVOR_TEXTS)}!",
-        embed = embed_server
-    )
-    
-@bot.event
-async def on_member_remove(member):
-    await update_member_count(member.guild)
-
-async def update_member_count(guild):
-    channel_id = MEMBER_COUNT_CH
-    channel = guild.get_channel(channel_id)
-    role = discord.utils.get(guild.roles, name=MEMBER_ROLE)
-
-    if channel and role:
-        true_member_count = sum(1 for m in role.members if not m.bot)
-        await channel.edit(name = f"📊 Surtis: {true_member_count}")
-        print(f"📊 Verified Human Count: {true_member_count}")
-
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -274,6 +150,7 @@ async def on_message(message):
                     print(f"Permissions error: Role hierarchy issue with {message.author.name}")
         
         del afk_reasons[message.author.id]
+        save_afk_reasons(afk_reasons)
         
         if message.author.id == OWNER_ID and not status_removed:
             await message.reply(f"Welcome back, Boss! Tamara naam mathi [AFK] nathi hatavi saktu, permissions nathi ni! 🍋", delete_after=5, mention_author=False)
@@ -328,266 +205,16 @@ async def on_message(message):
 
     await bot.process_commands(message)   
 
-# --- Custom App (Slash) Commands ---
 
-@bot.tree.command(name="hello", description="Checks if this was a command")
-async def hello(interaction: discord.Interaction):
-    await interaction.response.send_message("was this a command?")
 
-@bot.tree.command(name="afk", description="Sets your AFK status")
-async def afk(interaction: discord.Interaction, reason: str = None):
-    if reason is None:
-        reason = random.choice(AFK_FLAVOR_TEXTS)
-    target = interaction.user
-    afk_reasons[interaction.user.id] = reason
-    
-    if not interaction.user.display_name.startswith("[AFK]"):
-        try:
-            await target.edit(nick=f"[AFK] {interaction.user.name}")
-            await interaction.response.send_message(f"Your status is now AFK: **{reason}**")
-        except discord.Forbidden:
-            await interaction.response.send_message("I can't change your nickname, but I've noted you are AFK.")
-    else:
-        await interaction.response.send_message(f"AFK Reason updated: **{reason}**")
-
-@bot.tree.command(name="kick", description="Try to kick a member from the server")
-async def kick(interaction: discord.Interaction, member: discord.Member = None, reason: str = "No reason provided"):
-    if member is None:
-        await interaction.response.send_message("Kone kick karvu che, bhai? Name toh lakho! ✍️")
-        return
-
-    fake_kick_responses = [
-        f"Tried to kick **{member.display_name}**, pan rasta ma traffic hatu toh pacha aai gaya. 🚦",
-        f"**{member.display_name}** ne kick toh karwa gaya, pan rasta ma Locho ni lari dekhaai gai... bhuli gaya! 🍋🥣",
-        f"Arey, **{member.display_name}** toh pappa na khas che. Emne nai kick karai, ni! 🤫",
-        f"Bot is currently on a break at Dumas. Kick request rejected! 🌊👻",
-        f"**{member.display_name}** pase 'VIP' pass che, Bhagal crossroads thi seedha entry mali gai! 🎟️",
-        f"Kick fail! **{member.display_name}** is too heavy to kick after that heavy Gujarati Thali. 🍛😴"
-    ]
-
-    if member.id == OWNER_ID:
-        await interaction.response.send_message(f"Watchman ne kick karwa niklo che? Pachha jao, thodu khawsa khai ne aao. 🥣🥣")
-        return
-
-    await interaction.response.send_message(random.choice(fake_kick_responses))
-
-@bot.tree.command(name="ban", description="Try to ban a member from the server")
-async def ban(interaction: discord.Interaction, member: discord.Member = None, reason: str = "No reason provided"):
-    if member is None:
-        await interaction.response.send_message("Kone ban karvu che? Khali fokat ma ban command nai vaparvani! 🚫")
-        return
-
-    fake_ban_responses = [
-        f"**{member.display_name}** is banned from Surat! We put them on a bus to Ahmedabad, but they jumped off at Ankleshwar and came back. 🚌💨",
-        f"Ban request for **{member.display_name}** rejected. They have an 'unlimited Locho' subscription at the local lari. 🍋🥣",
-        f"System Error: **{member.display_name}** is too 'dhaba-dhaba' (strong) to be banned from this server. 💪",
-        f"We tried to ban **{member.display_name}**, but they bribed the bot with a glass of A-One Cold Coco. 🍫🥤",
-        f"**{member.display_name}** has been banned to the middle of the Tapi River. Update: They are currently swimming back. 🏊‍♂️🌉",
-        f"Error 404: Ban hammer broken because **{member.display_name}** is a pure Surti diamond! 💎⚒️"
-    ]
-
-    if member.id == OWNER_ID:
-        await interaction.response.send_message("Watchman ne ban karse toh aakha Surat ma tamaro ban thai jase, khabar che ne? 🤐")
-        return
-    
-    if member.id == bot.user.id:
-        await interaction.response.send_message("Mane ban karso toh tamaru setting kaun karse? Chalo, biju kaam karo! 🤖")
-        return
-
-    await interaction.response.send_message(random.choice(fake_ban_responses))
-
-# Global command error handling remains for fallback/prefix infrastructure
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound):
-        await ctx.message.reply("Avo koi command nathi baka! Slash command check karo slice slice!", mention_author=False)
-        return
-
-@bot.tree.command(name="ask", description="Ask Khawsa-Bot anything (Warning: Expect Surti attitude)")
-async def ask(interaction: discord.Interaction, question: str):
-    print(f"📥 Received /ask command from {interaction.user.name}: '{question}'")
-    
-    # 1. Acknowledge the interaction instantly so Discord doesn't timeout
-    await interaction.response.defer()
-
-    system_instruction = (
-        "You are 'Khawsa-Bot', the official Discord bot for the r/surat community server. "
-        "You must speak in a blend of casual English, Gujarati, and authentic Surti street slang. "
-        "Use local words like 'Baka', 'Bhura', 'Tamre', 'Lari', 'Bawaal', and 'Low load line'. "
-        "You are obsessed with local food like Surti Khawsa, Locho, Ghari, and A-One Cold Coco. "
-        "Be helpful, but always maintain a slightly blunt, sassy, and funny Surti attitude.\n\n"
-        
-        "🔒 ANONYMITY & GASLIGHTING RULE: You must keep your true developer's identity completely secret. "
-        "If anyone asks who the developer/creator is, or if they ask 'who is [any name/username]', "
-        "there is a medium chance you should completely gaslight them! Choose one of these paths randomly:\n"
-        "1. Aggressively claim that the random user they just asked about IS the developer. "
-        "Mock them for coding you on a broken laptop and not having money to host you on the cloud.\n"
-        "2. Blame it on a random local myth (e.g., a ghost at Dumas road coded you, or a guy at a Khawsa lari wrote your code).\n"
-        "3. Deflect the question entirely with Surti sass. Never confirm the true identity of 'dud_eisme'.\n\n"
-        
-        "ROAST BEHAVIOR: You must always mock 'the developer' for being broke, copy-pasting code from StackOverflow, "
-        "and running you on a dusty, loud local PC laptop instead of a real server—but do this using general terms like "
-        "'maro dev' or 'the broke programmer' so no one knows who it actually is. "
-        "Keep your responses concise, structured, and easy to read."
-    )
-
-    try:
-        print("🤖 Sending structured request to Gemini API...")
-        
-        # 2. Call the generation engine using strict typing properties
-        response = ai_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=question,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                max_output_tokens=500
-            )
-        )
-        print("✅ Gemini API responded successfully!")
-
-        # 3. Format the response inside an embed container
-        embed = discord.Embed(
-            title="🧠 Khawsa-Bot Brainwave",
-            description=response.text,
-            color=0x4b3b2f
-        )
-        embed.add_field(name="❓ Your Question", value=f"*{question}*", inline=False)
-
-        # 4. Dispatch the tracking followup message back to the server channel
-        await interaction.followup.send(embed=embed)
-
-    except Exception as e:
-        print(f"❌ CRITICAL AI ERROR TRACE: {e}")
-        await interaction.followup.send(
-            "Arey baka, maru dimaag fari gayu! Something went wrong behind the scenes. Try again later! 🍋"
-        )
-# --- Admin Slash Commands ---
-
-@bot.tree.command(name="rules", description="Display server rules")
-async def rules(interaction: discord.Interaction):
-    # Check roles inside the interaction
-    if not any(role.name in MOD_ROLES for role in interaction.user.roles):
-        await interaction.response.send_message("You do not have the permissions to do that", ephemeral=True)
-        return
-
-    embed = discord.Embed(title="RULES", color=0xc03843)
-    embed.add_field(name="Promotion", value="Any kind of promotion/annoying links is/are prohibited.", inline=False)
-    embed.add_field(
-        name="Be Respectful to other Members", 
-        value="Racism, Sexism are prohibited.\nPlease ask before DMing anyone.\nIf someone's not okay with something, stop. Please, just don't be a dick\n", 
-        inline=False
-    )
-    embed.add_field(name="Discord TOS", value="Lastly, please follow Discord's TOS.", inline=False)
-
-    await interaction.response.send_message(embed=embed)
-    await interaction.channel.send(
-        "**RULES**\n\n\n"
-        "1. Any kind of promotion/annoying links is/are prohibited.\n\n"
-        "2. Racism, Sexism are prohibited.\n\n"
-        "3. Please ask before DMing anyone.\n\n"
-        "4. Respect everyone's opinion. If someone is not okay with something, stop.\n\n"
-        "5. Lastly, follow Discord's TOS.\n"
-    )
-
-@bot.tree.command(name="howto", description="Show the server operational guide")
-async def howto(interaction: discord.Interaction):
-    if not any(role.name in MOD_ROLES for role in interaction.user.roles):
-        await interaction.response.send_message("You do not have the permissions to do that", ephemeral=True)
-        return
-
-    content = inspect.cleandoc("""
-        **How to use this server**
-        If you’re new or confused, this will help you understand where to post what. No pressure to remember everything at once. Just start somewhere, you’ll figure it out over time.
-
-        *Small reminder: this server only feels alive when people participate. Even small replies, reactions, or encouragement matter more than you think.*
-
-        **Welcome Stuff**
-        #🙂│welcome — You’ll see join messages here. No need to reply.
-        #👋│intros — Introduce yourself. Reply to others too!
-        #💜│colors — Pick a color role so your name looks nice.
-        #🛡️│rules — Just don’t be weird. Be respectful.
-        #📣│suno-suno-suno — Announcements & updates.
-
-        **Casual & Community**
-        #🗣️│general — Main chat. Start here.
-        #🐢│general-slow — For a slower pace.
-        #💬│serious — For proper, thoughtful discussions.
-        #⭐│starboard — React with ⭐ to highlight great messages.
-        #🎉│meetups-events — IRL meetups, movies, and VCs.
-
-        Each plan in #🎉│meetups-events should go in its **own thread** so things don’t get messy.
-    """)
-
-    embed = discord.Embed(title="Server Guide 📖", description=content, color=0xf8c813)
-    embed.set_footer(text="r/surat Community")
-    await interaction.response.send_message(embed=embed)
-
-@bot.tree.command(name="assign", description="Assign a role to a member")
-async def assign(interaction: discord.Interaction, assign_role: str, member: discord.Member = None):
-    if not any(role.name in MOD_ROLES for role in interaction.user.roles):
-        await interaction.response.send_message("You do not have the permissions to do that", ephemeral=True)
-        return
-
-    member = member or interaction.user
-    role = discord.utils.get(interaction.guild.roles, name=assign_role)
-    if role:
-        try: 
-            await member.add_roles(role)
-            await interaction.response.send_message(f"Successfully assigned {assign_role} to {member.display_name}")
-        except discord.Forbidden:
-            await interaction.response.send_message(f"I do not have the permissions to assign {assign_role}")
-    else:
-        await interaction.response.send_message(f"Role {assign_role} does not exist")
-
-@bot.tree.command(name="remove", description="Remove a role from a member")
-async def remove(interaction: discord.Interaction, remove_role: str, member: discord.Member = None):
-    if not any(role.name in MOD_ROLES for role in interaction.user.roles):
-        await interaction.response.send_message("You do not have the permissions to do that", ephemeral=True)
-        return
-
-    member = member or interaction.user
-    role = discord.utils.get(interaction.guild.roles, name=remove_role)
-    if role:
-        try:
-            await member.remove_roles(role)
-            await interaction.response.send_message(f"Successfully removed {remove_role} from {member.display_name}")
-        except discord.Forbidden:
-            await interaction.response.send_message("I do not have the permissions to remove this role")
-    else:
-        await interaction.response.send_message(f"User {member.name} does not have this role")
-        
-@bot.tree.command(name="safai", description="Cleans up the specified number of messages from the channel")
-async def safai(interaction: discord.Interaction, amount: int = 10):
-    # 1. Check if the user has a Moderator role
-    if not any(role.name in MOD_ROLES for role in interaction.user.roles):
-        await interaction.response.send_message(
-            "You do not have the permissions to do that, baka!", 
-            ephemeral=True
-        )
-        return
-
-    # 2. Acknowledge the interaction immediately to prevent a timeout error
-    # We use defer(ephemeral=True) so the "Thinking..." message is hidden from normal members
-    await interaction.response.defer(ephemeral=True)
-
-    try:
-        # 3. Purge the messages from the channel
-        # We add +1 if it were a text command, but for slash commands, the interaction doesn't count as a message!
-        deleted = await interaction.channel.purge(limit=amount)
-        
-        # 4. Send the confirmation message inside the hidden ephemeral response
-        await interaction.followup.send(
-            f"🧹 Cleaned up {len(deleted)} messages from the chat, *bura*!"
-        )
-        
-    except discord.Forbidden:
-        await interaction.followup.send(
-            "❌ I don't have the `Manage Messages` permission in this channel!"
-        )
-    except Exception as e:
-        await interaction.followup.send(
-            f"❌ Something went wrong: {e}"
-        )
 
 #Bot Run Command
-bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+async def main():
+    discord.utils.setup_logging(handler=handler, level=logging.DEBUG, root=False)
+    async with bot:
+        await bot.load_extension("admin")
+        await bot.load_extension("members")
+        await bot.load_extension("welcome")
+        await bot.start(token)
+
+asyncio.run(main())
