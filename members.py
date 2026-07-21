@@ -29,10 +29,45 @@ def save_afk_reasons(afk_reasons: dict):
 
 afk_reasons = load_afk_reasons()
 
-# --- Custom App (Slash) Commands ---
 class MemberCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+
+        for mention in message.mentions:
+            if mention.id in afk_reasons:
+                reason = afk_reasons[mention.id]
+                await message.channel.send(
+                    f"📌 {mention.display_name} is currently AFK: {reason}",
+                    delete_after=10
+                )
+
+        if message.author.id in afk_reasons:
+            status_removed = False
+
+            if message.author.nick and message.author.nick.upper().startswith("[AFK]"):
+                new_nick = message.author.nick[6:].strip()
+                try:
+                    await message.author.edit(nick=new_nick)
+                    status_removed = True
+                except discord.Forbidden:
+                    if message.author.id == OWNER_ID:
+                        print(f"Owner detected. Skipping nick change for {message.author.name}")
+                    else:
+                        print(f"Permissions error: Role hierarchy issue with {message.author.name}")
+
+            del afk_reasons[message.author.id]
+            save_afk_reasons(afk_reasons)
+
+            if message.author.id == OWNER_ID and not status_removed:
+                await message.reply(f"Welcome back, Boss! Tamara naam mathi [AFK] nathi hatavi saktu, permissions nathi ni! 🍋", delete_after=5, mention_author=False)
+            else:
+                await message.reply(f"Welcome back, I've removed your AFK status!", delete_after=5, mention_author=False)
+
     @app_commands.command(name="hello", description="Checks if this was a command")
     async def hello(self, interaction: discord.Interaction):
         await interaction.response.send_message("was this a command?")

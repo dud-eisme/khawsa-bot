@@ -1,5 +1,6 @@
 .env
 afk_reasons.json
+channel_id.py
 .khawsa-bot/
 discord.log
 __pycache__/

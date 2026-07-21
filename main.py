@@ -6,9 +6,7 @@ from dotenv import load_dotenv
 import os
 import random
 import asyncio
-from variables import MEMBER_ROLE
-from channel_id import GUILD_ID, GENERAL_CH, OWNER_ID
-from members import afk_reasons, save_afk_reasons
+from channel_id import GUILD_ID
 from welcome import update_member_count
 
 load_dotenv()
@@ -23,7 +21,6 @@ bot = commands.Bot(command_prefix=commands.when_mentioned_or('!'), intents=inten
 
 greet_cooldowns = {}
 
-#Bot Active Message
 @bot.event
 async def on_ready():
     print(f"✅ {bot.user.name} is online!")
@@ -44,18 +41,12 @@ async def on_ready():
     if not rotate_custom_status.is_running():
         rotate_custom_status.start()
 
-    if not random_ghost_ping.is_running():
-        random_ghost_ping.start()
-
-    # Sync Slash Commands Instantly to your local server
     try:
-        # Pass your server ID as a discord.Object to bypass the global global delay
         synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
         print(f"🔄 Immediate Sync: Updated {len(synced)} slash commands locally.")
     except Exception as e:
         print(f"❌ Failed to sync slash commands: {e}")
 
-# --- Dynamic Custom Status Rotation ---
 @tasks.loop(minutes=30)
 async def rotate_custom_status():
     await bot.wait_until_ready()
@@ -80,45 +71,6 @@ async def rotate_custom_status():
     await bot.change_presence(status=discord.Status.online, activity=activity)
     print(f"🔄 Status updated to: {chosen_status}")
 
-# --- Random Ghost Ping Feature ---
-@tasks.loop(minutes=30)  # Runs a check every 30 minutes
-async def random_ghost_ping():
-    await bot.wait_until_ready()
-    
-    # 🎲 40% chance to actually fire during this 30-minute interval to keep it unpredictable
-    if random.random() > 0.40:
-        return
-
-    guild = bot.get_guild(GUILD_ID)
-    if not guild:
-        return
-
-    # 🗣️ Target your main chat channel
-    channel = guild.get_channel(GENERAL_CH)
-    if not channel:
-        return
-
-    # Grab all non-bot members who are currently in the member role cache
-    role = discord.utils.get(guild.roles, name=MEMBER_ROLE)
-    if not role:
-        return
-        
-    human_members = [m for m in role.members if not m.bot]
-    
-    if human_members:
-        target_user = random.choice(human_members)
-        
-        try:
-            # 👻 Send the ping
-            ghost_msg = await channel.send(f"{target_user.mention}")
-            # 💨 Vaporize it instantly!
-            await ghost_msg.delete()
-            print(f"👻 Ghost pinged {target_user.name} successfully in general!")
-        except discord.Forbidden:
-            print("❌ Cannot ghost ping: Missing 'Send Messages' or 'Manage Messages' permission.")
-        except Exception as e:
-            print(f"❌ Ghost ping error: {e}")
-
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -126,38 +78,6 @@ async def on_message(message):
 
     msg = message.content.lower()
 
-    # --- AFK System ---
-    for mention in message.mentions:
-        if mention.id in afk_reasons:
-            reason = afk_reasons[mention.id]
-            await message.channel.send(
-                f"📌 {mention.display_name} is currently AFK: {reason}", 
-                delete_after=10
-            )
-    
-    if message.author.id in afk_reasons:
-        status_removed = False
-        
-        if message.author.nick and message.author.nick.upper().startswith("[AFK]"):
-            new_nick = message.author.nick[6:].strip()
-            try:
-                await message.author.edit(nick=new_nick)
-                status_removed = True
-            except discord.Forbidden:
-                if message.author.id == OWNER_ID:
-                    print(f"Owner detected. Skipping nick change for {message.author.name}")
-                else:
-                    print(f"Permissions error: Role hierarchy issue with {message.author.name}")
-        
-        del afk_reasons[message.author.id]
-        save_afk_reasons(afk_reasons)
-        
-        if message.author.id == OWNER_ID and not status_removed:
-            await message.reply(f"Welcome back, Boss! Tamara naam mathi [AFK] nathi hatavi saktu, permissions nathi ni! 🍋", delete_after=5, mention_author=False)
-        else:
-            await message.reply(f"Welcome back, I've removed your AFK status!", delete_after=5, mention_author=False)
-
-    # --- Strict Empty Ping Detection ---
     if message.content.strip() == bot.user.mention:
         responses = [
             "Su kaam che baka? Kaam vagar magaj ni dahi nahi kar ni bura! 🤫",
@@ -172,7 +92,6 @@ async def on_message(message):
         if random.random() < 0.8: 
             await message.channel.send("Did someone say Khaman? Real Surtis know Locho is the goat. 🍋🥣")
 
-    # COMBINED TRIGGER: Catches "su chale", "shu chale", or a standalone/casual "hi"
     if "su chale" in msg or "shu chale" in msg:
         responses = [
             "Khawsa ni lari chale che, biju su!",
@@ -182,17 +101,14 @@ async def on_message(message):
         ]
         await message.reply(random.choice(responses), mention_author=False)
         
-        # 👋 CLEANED GREETING: Now ONLY triggers if the message starts with a greeting keyword or is exactly "hi"
     elif msg.startswith(("hello", "kem cho", "yo")) or msg.strip() == "hi":
         import time
         current_time = time.time()
         user_id = message.author.id
         
-        # ⏱️ Check if the user is on a 5-minute (300 seconds) cooldown
         if user_id in greet_cooldowns and (current_time - greet_cooldowns[user_id]) < 300:
             return
 
-        # If not on cooldown, update their timestamp and send the response
         greet_cooldowns[user_id] = current_time
 
         greeting_responses = [
@@ -208,13 +124,13 @@ async def on_message(message):
 
 
 
-#Bot Run Command
 async def main():
     discord.utils.setup_logging(handler=handler, level=logging.DEBUG, root=False)
     async with bot:
         await bot.load_extension("admin")
         await bot.load_extension("members")
         await bot.load_extension("welcome")
+        await bot.load_extension("annoying")
         await bot.start(token)
 
 asyncio.run(main())

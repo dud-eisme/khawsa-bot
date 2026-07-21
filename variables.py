@@ -114,6 +114,39 @@ AFTER_FLAVOR_TEXTS = [
     "touched down",
 ]
 
+NVM_RESPONSES = [
+    "nvm",
+    "nvm forget it",
+    "...actually nvm",
+    "wait no, nvm 💀",
+    "eh, doesn't matter",
+    "never mind, lost my train of thought",
+    "hmm, nvm baka",
+    "was gonna say something but nvm",
+    "🤐 nvm",
+    "aa... nvm chalse",
+]
+
+UNHELPFUL_REPLIES = [
+    "totally valid point",
+    "yeah no that tracks",
+    "hmm interesting take",
+    "wow, never thought of it that way",
+    "🍋",
+    "could be, could not be",
+    "that's between you and the Tapi river",
+    "sure, why not",
+    "profound honestly",
+    "no notes",
+    "ok",
+    "bhai su vaat che 🤔",
+]
+
+REACTION_EMOJIS = [
+    "💀", "🍋", "🥣", "👻", "🤡", "🚌", "🌊", "😭",
+    "🫡", "🧠", "👀", "🔥", "💎", "🛶", "🤫", "📉",
+]
+
 AFK_FLAVOR_TEXTS = [
     # Food & Drinks
     "currently hunting for the best Khawsa in the gallis 🥣",
