@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import os
 import random
 import asyncio
-from channel_id import GUILD_ID
+from channel_id import GUILD_ID, INTRO_CH
 from welcome import update_member_count
 
 load_dotenv()
@@ -92,32 +92,33 @@ async def on_message(message):
         if random.random() < 0.8: 
             await message.channel.send("Did someone say Khaman? Real Surtis know Locho is the goat. 🍋🥣")
 
-    if "su chale" in msg or "shu chale" in msg:
-        responses = [
-            "Khawsa ni lari chale che, biju su!",
-            "Bhagal par traffic chale che, bhai.",
-            "Bas, tamari daya che!",
-            "Dumas par bhoot chale che. 👻"
-        ]
-        await message.reply(random.choice(responses), mention_author=False)
-        
-    elif msg.startswith(("hello", "kem cho", "yo")) or msg.strip() == "hi":
-        import time
-        current_time = time.time()
-        user_id = message.author.id
-        
-        if user_id in greet_cooldowns and (current_time - greet_cooldowns[user_id]) < 300:
-            return
-
-        greet_cooldowns[user_id] = current_time
-
-        greeting_responses = [
-            f"👋 *Aav baka aav!* Kem che {message.author.mention}?",
-            f"🙌 *Yo bhura!* Su chale che? All good?",
-            f"🥣 *Aao padharo!* Let's grab some hot Locho!",
-            f"🍋 *Kem cho baka!* Bol su help joiye che?"
-        ]
-        await message.reply(random.choice(greeting_responses), mention_author=False)
+    if message.channel.id not in INTRO_CH:
+        if "su chale" in msg or "shu chale" in msg:
+            responses = [
+                "Khawsa ni lari chale che, biju su!",
+                "Bhagal par traffic chale che, bhai.",
+                "Bas, tamari daya che!",
+                "Dumas par bhoot chale che. 👻"
+            ]
+            await message.reply(random.choice(responses), mention_author=False)
+            
+        elif msg.startswith(("hello", "kem cho", "yo")) or msg.strip() == "hi":
+            import time
+            current_time = time.time()
+            user_id = message.author.id
+            
+            if user_id in greet_cooldowns and (current_time - greet_cooldowns[user_id]) < 300:
+                return
+    
+            greet_cooldowns[user_id] = current_time
+    
+            greeting_responses = [
+                f"👋 *Aav baka aav!* Kem che {message.author.mention}?",
+                f"🙌 *Yo bhura!* Su chale che? All good?",
+                f"🥣 *Aao padharo!* Let's grab some hot Locho!",
+                f"🍋 *Kem cho baka!* Bol su help joiye che?"
+            ]
+            await message.reply(random.choice(greeting_responses), mention_author=False)
 
     await bot.process_commands(message)   
 

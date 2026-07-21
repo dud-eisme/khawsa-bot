@@ -1,5 +1,6 @@
 import discord
 import random
+import asyncio
 from discord.ext import commands
 
 from variables import (
@@ -115,6 +116,26 @@ class WelcomeCog(commands.Cog):
     @commands.Cog.listener()
     async def on_member_remove(self, member):
         await update_member_count(member.guild)
+
+    @commands.Cog.listener()
+    async def on_thread_create(self, thread: discord.Thread):
+        if thread.parent_id != INTRO_CH:
+            return
+
+        try:
+            await thread.join()
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+        await asyncio.sleep(2)
+
+        try:
+            await thread.send("good morning")
+            print(f"👋 Auto-replied first in new intro post: {thread.name}")
+        except discord.Forbidden:
+            print("❌ Cannot reply in intro post: Missing permissions.")
+        except Exception as e:
+            print(f"❌ Intro auto-reply error: {e}")
 
 
 async def setup(bot: commands.Bot):
